@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 	"strings"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
@@ -36,9 +34,45 @@ func main() {
 		routing.PauseKey,
 		pubsub.Transient)
 
-	// wait for exit Ctr c
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
+	gameState := gamelogic.NewGameState(username)
+
+	for {
+		userInput := gamelogic.GetInput()
+		if len(userInput) == 0 {
+			continue
+		}
+
+		switch userInput[0] {
+		case "spawn":
+			if err := gameState.CommandSpawn(userInput); err != nil {
+				fmt.Printf("Error spawning a new unit: %v\n, try again: \n", err)
+				continue
+			}
+		case "move":
+			if army, err := gameState.CommandMove(userInput); err != nil {
+				fmt.Printf("Error moving the unit: %v, try again: \n", err)
+				continue
+			} else {
+				fmt.Printf("Moving the selected army to: %v was successful\n", army.ToLocation)
+			}
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+		case "status":
+			gameState.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("Command not known to game...")
+			continue
+		}
+	}
+
+	// // wait for exit Ctr c
+	// signalChan := make(chan os.Signal, 1)
+	// signal.Notify(signalChan, os.Interrupt)
+	// <-signalChan
 
 }
