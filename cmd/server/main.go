@@ -10,7 +10,7 @@ import (
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
-	"github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
@@ -18,13 +18,24 @@ func main() {
 	fmt.Println("Starting Peril server...")
 
 	cnx_string := "amqp://guest:guest@localhost:5672/"
-	cnx, err := amqp091.Dial(cnx_string)
+	cnx, err := amqp.Dial(cnx_string)
 	if err != nil {
 		log.Fatalf("Could not connect to Rabbit MQ: %v", err)
 	}
 	defer cnx.Close()
 
 	fmt.Println("Connection to the queue successful!")
+
+	_, queue, err := pubsub.DeclareAndBind(cnx,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug + ".*",
+		pubsub.Durable)
+	if err != nil {
+		log.Fatalf("could not subscribe to pause: %v", err)
+	}
+
+	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
 	gamelogic.PrintServerHelp()
 
