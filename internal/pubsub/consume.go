@@ -1,9 +1,6 @@
 package pubsub
 
 import (
-	"context"
-	"encoding/json"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -23,20 +20,6 @@ var Transient SimpleQueueType = SimpleQueueType{
 	Durable:    false,
 	Exclusive:  true,
 	AutoDelete: true,
-}
-
-func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
-	data, err := json.Marshal(val)
-	if err != nil {
-		return err
-	}
-
-	ch.PublishWithContext(context.Background(), exchange, key, false, false, amqp.Publishing{
-		ContentType: "application/json",
-		Body:        data,
-	})
-
-	return nil
 }
 
 func DeclareAndBind(conn *amqp.Connection, exchange, queueName, key string, queueType SimpleQueueType) (*amqp.Channel, amqp.Queue, error) {
