@@ -70,7 +70,7 @@ func SubscribeJSON[T any](
 		var target T
 		for msg := range msgs {
 			if err := json.Unmarshal(msg.Body, &target); err != nil {
-				fmt.Printf("Could not Unmarshal message: %w", err)
+				fmt.Printf("Could not Unmarshal message: %v", err)
 				continue
 			}
 			handler(target)
