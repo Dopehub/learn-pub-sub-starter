@@ -28,19 +28,17 @@ func main() {
 		log.Fatalf("Something went wrong when retrieving username?: %v", err)
 	}
 
-	_, queue, err := pubsub.DeclareAndBind(cnx,
+	gameState := gamelogic.NewGameState(username)
+
+	if err := pubsub.SubscribeJSON(cnx,
 		routing.ExchangePerilDirect,
 		strings.Join([]string{routing.PauseKey, username}, "."),
 		routing.PauseKey,
-		pubsub.Transient)
-
-	if err != nil {
-		log.Fatalf("could not subscribe to pause: %v", err)
+		pubsub.Transient,
+		handlerPause(gameState),
+	); err != nil {
+		log.Fatalf("Something went wrong: %v", err)
 	}
-
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
-
-	gameState := gamelogic.NewGameState(username)
 
 	for {
 		userInput := gamelogic.GetInput()
@@ -81,4 +79,11 @@ func main() {
 	// signal.Notify(signalChan, os.Interrupt)
 	// <-signalChan
 
+}
+
+func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
+	return func(ps routing.PlayingState) {
+		defer fmt.Print("> ")
+		gs.HandlePause(ps)
+	}
 }
