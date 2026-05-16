@@ -8,14 +8,14 @@ import (
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
-	"github.com/rabbitmq/amqp091-go"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func main() {
 	fmt.Println("Starting Peril client...")
 
 	cnx_string := "amqp://guest:guest@localhost:5672/"
-	cnx, err := amqp091.Dial(cnx_string)
+	cnx, err := amqp.Dial(cnx_string)
 	if err != nil {
 		log.Fatalf("Could not connect to Rabbit MQ: %v", err)
 	}
@@ -29,7 +29,8 @@ func main() {
 	}
 
 	gameState := gamelogic.NewGameState(username)
-
+	
+	// clients subscribe to the pause key sent from the server
 	if err := pubsub.SubscribeJSON(cnx,
 		routing.ExchangePerilDirect,
 		strings.Join([]string{routing.PauseKey, username}, "."),
@@ -39,6 +40,19 @@ func main() {
 	); err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}
+	// clients subscibe to other players move actions on a topic
+	if err := pubsub.SubscribeJSON(cnx,
+		routing.ExchangePerilTopic,
+		strings.Join([]string{"army_moves", username}, "."),
+		"army_moves.*",
+		pubsub.Transient,
+		handlerMove(gameState),
+	); err != nil {
+		log.Fatalf("Something went wrong: %v", err)
+	}
+
+	// creating the publish channel
+	publishChan, err := cnx.Channel()
 
 	for {
 		userInput := gamelogic.GetInput()
@@ -53,11 +67,15 @@ func main() {
 				continue
 			}
 		case "move":
-			if army, err := gameState.CommandMove(userInput); err != nil {
+			if armyMV, err := gameState.CommandMove(userInput); err != nil {
 				fmt.Printf("Error moving the unit: %v, try again: \n", err)
 				continue
 			} else {
-				fmt.Printf("Moving the selected army to: %v was successful\n", army.ToLocation)
+				err = pubsub.PublishJSON(publishChan, routing.ExchangePerilTopic, "army_moves."+username, armyMV)
+				if err != nil {
+					log.Fatalf("could not publish message: %v", err)
+				}
+				fmt.Printf("Moving the selected army to: %v was successful\n", armyMV.ToLocation)
 			}
 		case "spam":
 			fmt.Println("Spamming not allowed yet!")
@@ -79,11 +97,4 @@ func main() {
 	// signal.Notify(signalChan, os.Interrupt)
 	// <-signalChan
 
-}
-
-func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
-	return func(ps routing.PlayingState) {
-		defer fmt.Print("> ")
-		gs.HandlePause(ps)
-	}
 }
