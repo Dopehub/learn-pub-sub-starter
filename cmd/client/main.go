@@ -36,33 +36,36 @@ func main() {
 	publishChan, err := cnx.Channel()
 
 	// clients subscribe to the pause key sent from the server
-	if err := pubsub.SubscribeJSON(cnx,
+	if err := pubsub.Subscribe(cnx,
 		routing.ExchangePerilDirect,
 		strings.Join([]string{routing.PauseKey, username}, "."),
 		routing.PauseKey,
 		pubsub.Transient,
 		handlerPause(gameState),
+		pubsub.UnmarshallerJson,
 	); err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}
 	// clients subscibe to other players move actions on a topic
-	if err := pubsub.SubscribeJSON(cnx,
+	if err := pubsub.Subscribe(cnx,
 		routing.ExchangePerilTopic,
 		strings.Join([]string{"army_moves", username}, "."),
 		"army_moves.*",
 		pubsub.Transient,
 		handlerMove(gameState, publishChan),
+		pubsub.UnmarshallerJson,
 	); err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}
 
 	// clients subscribe to the war messages
-	if err := pubsub.SubscribeJSON(cnx,
+	if err := pubsub.Subscribe(cnx,
 		routing.ExchangePerilTopic,
 		"war",
 		"war.*",
 		pubsub.Durable,
-		handlerWarMessageConsumer(gameState, publishChan),
+		handlerWar(gameState, publishChan),
+		pubsub.UnmarshallerGob,
 	); err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}

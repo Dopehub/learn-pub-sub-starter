@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 
@@ -55,13 +57,14 @@ func DeclareAndBind(conn *amqp.Connection,
 	return pubChan, queue, nil
 }
 
-func SubscribeJSON[T any](
+func Subscribe[T any](
 	conn *amqp.Connection,
 	exchange,
 	queueName,
 	key string,
 	queueType SimpleQueueType,
 	handler func(T) Acktype,
+	unmarshaller func([]byte) (T, error),
 ) error {
 
 	ch, queue, err := DeclareAndBind(conn,
@@ -72,7 +75,7 @@ func SubscribeJSON[T any](
 		amqp.Table{
 			"x-dead-letter-exchange": "peril_dlx",
 		})
-		
+
 	if err != nil {
 		return fmt.Errorf("Could not bind to queue: %w", err)
 	}
@@ -84,9 +87,10 @@ func SubscribeJSON[T any](
 
 	go func() {
 		defer ch.Close()
-		var target T
+
 		for msg := range msgs {
-			if err := json.Unmarshal(msg.Body, &target); err != nil {
+			target, err := unmarshaller(msg.Body)
+			if err != nil {
 				fmt.Printf("Could not Unmarshal message: %v", err)
 				continue
 			}
@@ -106,4 +110,22 @@ func SubscribeJSON[T any](
 	}()
 
 	return nil
+}
+
+
+func UnmarshallerGob[T any](data []byte) (T, error) {
+	var target T
+	decoder := gob.NewDecoder(bytes.NewBuffer(data))
+	if err := decoder.Decode(&target); err != nil {
+		return target, err
+	}
+	return target, nil
+}
+
+func UnmarshallerJson[T any](data []byte) (T, error) {
+	var target T
+	if err := json.Unmarshal(data, &target); err != nil {
+		return target, err
+	}
+	return target, nil
 }
