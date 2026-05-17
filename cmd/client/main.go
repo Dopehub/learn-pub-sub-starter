@@ -28,8 +28,12 @@ func main() {
 		log.Fatalf("Something went wrong when retrieving username?: %v", err)
 	}
 
+	// creating the game state
 	gameState := gamelogic.NewGameState(username)
-	
+
+	// creating the publish channel
+	publishChan, err := cnx.Channel()
+
 	// clients subscribe to the pause key sent from the server
 	if err := pubsub.SubscribeJSON(cnx,
 		routing.ExchangePerilDirect,
@@ -46,13 +50,21 @@ func main() {
 		strings.Join([]string{"army_moves", username}, "."),
 		"army_moves.*",
 		pubsub.Transient,
-		handlerMove(gameState),
+		handlerMove(gameState, publishChan),
 	); err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}
 
-	// creating the publish channel
-	publishChan, err := cnx.Channel()
+	// clients subscribe to the war messages
+	if err := pubsub.SubscribeJSON(cnx,
+		routing.ExchangePerilTopic,
+		"war",
+		"war.*",
+		pubsub.Durable,
+		handlerWarMessageConsumer(gameState),
+	); err != nil {
+		log.Fatalf("Something went wrong: %v", err)
+	}
 
 	for {
 		userInput := gamelogic.GetInput()
