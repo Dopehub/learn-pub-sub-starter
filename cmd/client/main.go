@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -61,7 +62,7 @@ func main() {
 		"war",
 		"war.*",
 		pubsub.Durable,
-		handlerWarMessageConsumer(gameState),
+		handlerWarMessageConsumer(gameState, publishChan),
 	); err != nil {
 		log.Fatalf("Something went wrong: %v", err)
 	}
@@ -109,4 +110,16 @@ func main() {
 	// signal.Notify(signalChan, os.Interrupt)
 	// <-signalChan
 
+}
+
+func gameLogConstruct(ch *amqp.Channel, username, msg string) error {
+	return pubsub.PublishGob(ch,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug+"."+username,
+		routing.GameLog{
+			Username:    username,
+			Message:     msg,
+			CurrentTime: time.Now(),
+		},
+	)
 }
