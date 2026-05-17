@@ -7,6 +7,14 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+type Acktype int
+
+const (
+	Ack Acktype = iota
+	NackDiscard
+	NackRequeue
+)
+
 type SimpleQueueType struct {
 	Durable    bool
 	Exclusive  bool
@@ -29,12 +37,13 @@ func DeclareAndBind(conn *amqp.Connection,
 	exchange, queueName,
 	key string,
 	queueType SimpleQueueType,
+	table amqp.Table,
 ) (*amqp.Channel, amqp.Queue, error) {
 	pubChan, err := conn.Channel()
 	if err != nil {
 		return nil, amqp.Queue{}, err
 	}
-	queue, err := pubChan.QueueDeclare(queueName, queueType.Durable, queueType.AutoDelete, queueType.Exclusive, false, nil)
+	queue, err := pubChan.QueueDeclare(queueName, queueType.Durable, queueType.AutoDelete, queueType.Exclusive, false, table)
 	if err != nil {
 		return pubChan, amqp.Queue{}, err
 	}
@@ -52,10 +61,18 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T),
+	handler func(T) Acktype,
 ) error {
 
-	ch, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	ch, queue, err := DeclareAndBind(conn,
+		exchange,
+		queueName,
+		key,
+		queueType,
+		amqp.Table{
+			"x-dead-letter-exchange": "peril_dlx",
+		})
+		
 	if err != nil {
 		return fmt.Errorf("Could not bind to queue: %w", err)
 	}
@@ -73,8 +90,18 @@ func SubscribeJSON[T any](
 				fmt.Printf("Could not Unmarshal message: %v", err)
 				continue
 			}
-			handler(target)
-			msg.Ack(false)
+			ackT := handler(target)
+			switch ackT {
+			case Ack:
+				msg.Ack(false)
+				fmt.Println("Ack")
+			case NackRequeue:
+				msg.Nack(false, true)
+				fmt.Println("Nack Requeue")
+			case NackDiscard:
+				msg.Nack(false, false)
+				fmt.Println("Nack Discard")
+			}
 		}
 	}()
 

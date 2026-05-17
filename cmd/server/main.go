@@ -29,8 +29,11 @@ func main() {
 	_, queue, err := pubsub.DeclareAndBind(cnx,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
-		routing.GameLogSlug + ".*",
-		pubsub.Durable)
+		routing.GameLogSlug+".*",
+		pubsub.Durable,
+		amqp.Table{
+			"x-dead-letter-exchange": "peril_dlx",
+		})
 	if err != nil {
 		log.Fatalf("could not subscribe to pause: %v", err)
 	}
