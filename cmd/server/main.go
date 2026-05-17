@@ -26,16 +26,14 @@ func main() {
 
 	fmt.Println("Connection to the queue successful!")
 
-	_, queue, err := pubsub.DeclareAndBind(cnx,
-		routing.ExchangePerilTopic,
-		routing.GameLogSlug,
-		routing.GameLogSlug+".*",
-		pubsub.Durable,
-		amqp.Table{
-			"x-dead-letter-exchange": "peril_dlx",
-		})
+	// creating the publish channel
+	publishChan, err := cnx.Channel()
 
-	pubsub.Subscribe(cnx,
+	if err != nil {
+		log.Fatalf("Connection to the channel unsuccessful, could not create channel %v", err)
+	}
+
+	err = pubsub.Subscribe(cnx,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
 		routing.GameLogSlug+".*",
@@ -44,19 +42,12 @@ func main() {
 		pubsub.UnmarshallerGob,
 	)
 	if err != nil {
-		log.Fatalf("could not subscribe to pause: %v", err)
+		log.Fatalf("could not start consuming logs: %v", err)
 	}
-
-	fmt.Printf("Queue %v declared and bound!\n", queue.Name)
 
 	gamelogic.PrintServerHelp()
 
-	// creating the publish channel
-	publishChan, err := cnx.Channel()
-
-	if err != nil {
-		log.Fatalf("Connection to the channel unsuccessful, could not create channel %v", err)
-	}
+	
 
 	for {
 		userInput := gamelogic.GetInput()
