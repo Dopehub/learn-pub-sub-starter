@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -94,7 +95,23 @@ func main() {
 				fmt.Printf("Moving the selected army to: %v was successful\n", armyMV.ToLocation)
 			}
 		case "spam":
-			fmt.Println("Spamming not allowed yet!")
+			if len(userInput) < 2 {
+				fmt.Println("Spamming not allowed yet!")
+				continue
+			}
+			nb, err := strconv.Atoi(userInput[1])
+			if err != nil {
+				fmt.Println("Second parameter has to be a whole number")
+				continue
+			}
+			for range nb {
+				err := publishGameLogConstruct(publishChan, username, gamelogic.GetMaliciousLog())
+				if err != nil {
+					fmt.Println(err.Error())
+					continue
+				}
+			}
+
 		case "status":
 			gameState.CommandStatus()
 		case "help":
@@ -115,7 +132,7 @@ func main() {
 
 }
 
-func gameLogConstruct(ch *amqp.Channel, username, msg string) error {
+func publishGameLogConstruct(ch *amqp.Channel, username, msg string) error {
 	return pubsub.PublishGob(ch,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug+"."+username,

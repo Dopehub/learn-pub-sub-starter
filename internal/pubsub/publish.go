@@ -36,15 +36,16 @@ func PublishGob[T any](
 ) error {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
-	err := encoder.Encode(val)
-	if err != nil {
+	if err := encoder.Encode(val); err != nil {
 		return err
 	}
-
-	ch.PublishWithContext(context.Background(), exchange, key, false, false, amqp.Publishing{
+	
+	if err := ch.PublishWithContext(context.Background(), exchange, key, false, false, amqp.Publishing{
 		ContentType: "application/gob",
 		Body:        buffer.Bytes(),
-	})
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }

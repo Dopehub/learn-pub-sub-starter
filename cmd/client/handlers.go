@@ -56,7 +56,7 @@ func handlerWar(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.Recogn
 			return pubsub.NackRequeue
 		case gamelogic.WarOutcomeDraw:
 			msg = fmt.Sprintf("A war between {%s} and {%s} resulted in a draw", winner, loser)
-			if err := gameLogConstruct(ch,
+			if err := publishGameLogConstruct(ch,
 				gs.GetUsername(),
 				msg); err != nil {
 				return pubsub.NackRequeue
@@ -65,14 +65,14 @@ func handlerWar(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.Recogn
 		case gamelogic.WarOutcomeNoUnits:
 			return pubsub.NackDiscard
 		case gamelogic.WarOutcomeOpponentWon:
-			if err := gameLogConstruct(ch,
+			if err := publishGameLogConstruct(ch,
 				gs.GetUsername(),
 				msg); err != nil {
 				return pubsub.NackRequeue
 			}
 			return pubsub.Ack
 		case gamelogic.WarOutcomeYouWon:
-			if err := gameLogConstruct(ch,
+			if err := publishGameLogConstruct(ch,
 				gs.GetUsername(),
 				msg); err != nil {
 				return pubsub.NackRequeue
